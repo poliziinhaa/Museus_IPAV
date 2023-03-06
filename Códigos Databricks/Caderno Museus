@@ -1,0 +1,290 @@
+<h3> 1 - PREPARAÇÃO DO AMBIENTE E CONEXÕES NECESSÁRIAS COM AZURE
+"""
+
+#%pip install --upgrade pip
+#%pip install msal
+#%pip install pandas
+
+import msal
+import pandas as pd
+import pyspark.sql.utils
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
+import pyspark.sql.functions as f
+
+#função de escrita no Azure SQL Database
+def write_AzureSQLdb():
+
+    #Id do locatário/inquilino: Localizado em Registros de Aplicativos do Azure Active Directory -> app-user-databricks
+    tenant_id = '<INSIRA AQUI O ID DO LOCATÁRIO>'
+
+    #Autoridade:
+    MSAL_authority = 'https://login.windows.net/' + tenant_id
+
+    #url do recurso database
+    resource_url = '<INSIRA AQUI URL DO RECURSO DATABASE>'
+
+    # Service Principal Client ID - Criado em secrets no Key Vault
+    service_principal_id = "dbutils.secrets.get(scope = '<INSIRA AQUI AS INFORMAÇÕES NECESSÁRIAS>', key = 'INSIRA AQUI AS INFORMAÇÕES NECESSÁRIAS')
+
+    # Service Principal Secret - Criado em secrets no Key Vault
+    service_principal_secret = dbutils.secrets.get(scope = '<INSIRA AQUI AS INFORMAÇÕES NECESSÁRIAS>', key = '<INSIRA AQUI AS INFORMAÇÕES NECESSÁRIAS>')
+
+    # Variaveis e string de conexão ao Azure SQL Server
+    jdbcHostname  = '<INSIRA AQUI AS INFORMAÇÕES NECESSÁRIAS>'
+    jdbcDatabase  = '<INSIRA AQUI AS INFORMAÇÕES NECESSÁRIAS>'
+    jdbcPort      = '<INSIRA AQUI AS INFORMAÇÕES NECESSÁRIAS>'
+    jdbcUrl       = f'jdbc:sqlserver://{jdbcHostname}:{jdbcPort};database={jdbcDatabase}'
+
+    #Criando a instância que sera usada durante todo o ciclo de vida do aplicativo.
+    instance = msal.ConfidentialClientApplication(service_principal_id, service_principal_secret, MSAL_authority)
+
+    #Enviando solicitação ao AAD para obter um token.
+    token = instance.acquire_token_for_client(resource_url)
+
+    #acesando o token
+    access_token = token['access_token']
+
+    #selecao das colunas, formato da conexão, url da conexão, schema.tabela e acesso do token.
+    museus.write.format('jdbc')\
+                                     .mode('overwrite')\
+                                     .option('url', jdbcUrl)\
+                                     .option('dbtable', 'stage_poliana_cavalheiro.museu_lab04')\
+                                     .option('accessToken', access_token)\
+                                     .save()
+
+"""<h3> 2 - ACESSO AO ARQUIVO DO BLOB E VISUALIZAÇÃO INICIAL DO ARQUIVO"""
+
+dbutils.fs.ls('<INSIRA AQUI O CAMINHO DO BLOB>')
+
+# Commented out IPython magic to ensure Python compatibility.
+# %fs
+ls '<INSIRA AQUI AS INFORMAÇÕES NECESSÁRIAS>'
+
+caminho = '<INSIRA AQUI AS INFORMAÇÕES NECESSÁRIAS>'
+df_museus = (spark.read
+    .format('json')
+    .option('inferSchema', 'true')
+    .option('header', 'true')
+    .load(caminho))
+
+#vsualização do DataFrame
+df_museus.display()
+
+#Informações de cada coluna
+df_museus.printSchema()
+
+#contagem
+df_museus.count()
+
+"""<h3> 3 - TRATAMENTO DE DADOS"""
+
+tratamento = df_museus.select(col('id'),
+                              col('name').alias('nome'),
+                              col('createTimestamp.date').alias('data_criacao'),
+                              col('shortDescription').alias('descricao'),
+                              col('endereco'),
+                              col('En_Estado').alias('estado'),
+                              col('En_Estado').alias('regiao'),
+                              col('location.latitude').alias('latitude'),
+                              col('location.longitude').alias('longitude'),
+                              col('acessibilidade'),
+                              col('site').alias('sites'),
+                              col('emailPublico'),
+                              col('telefonePublico'),
+                              col('facebook'),
+                              col('instagram'),
+                              col('twitter')
+                             )
+tratamento.display()
+
+#verificando os dados da coluna
+tratamento.select(col('regiao')).distinct().display()
+
+#realizando o tratamento dos diferentes
+tratamento1 = tratamento.withColumn('regiao', when(col('regiao') == lit('Santa Catarina'), 'SC').otherwise(col('regiao'))) \
+                        .withColumn('regiao', when(col('regiao') == lit('Rio Grande do Sul'), 'RS').otherwise(col('regiao'))) \
+                        .withColumn('regiao', when(col('regiao') == lit('Maranhão'), 'MA').otherwise(col('regiao')))
+
+#verificando os dados da coluna para ver se está tudo ok
+tratamento1.select(col('regiao')).distinct().display()
+
+regioes = {
+    'AC': 'Norte',
+    'AL': 'Nordeste',
+    'AP': 'Norte',
+    'AM': 'Norte',
+    'BA': 'Nordeste',
+    'CE': 'Nordeste',
+    'DF': 'Centro-Oeste',
+    'ES': 'Sudeste',
+    'GO': 'Centro-Oeste',
+    'MA': 'Nordeste',
+    'MG': 'Sudeste',
+    'MS': 'Centro-Oeste',
+    'MT': 'Centro-Oeste',
+    'PA': 'Norte',
+    'PB': 'Nordeste',
+    'PE': 'Nordeste',
+    'PI': 'Nordeste',
+    'PR': 'Sul',
+    'RJ': 'Sudeste',
+    'RN': 'Nordeste',
+    'RR': 'Norte',
+    'RS': 'Sul',
+    'RO': 'Norte',
+    'SC': 'Sul',
+    'SE': 'Nordeste',
+    'SP': 'Sudeste',
+    'TO': 'Norte',
+}
+
+for estado in regioes:
+    tratamento1 = tratamento1.withColumn('regiao', when(col('regiao') == lit(estado), regioes[estado]).otherwise(col('regiao')))
+
+tratamento1.display()
+
+tratamento1.filter(tratamento.id.isNull()).display()
+tratamento1.filter(tratamento.nome.isNull()).display()
+tratamento1.filter(tratamento.data_criacao.isNull()).display()
+tratamento1.filter(tratamento.descricao.isNull()).display()
+tratamento1.filter(tratamento.endereco.isNull()).display()
+tratamento1.filter(tratamento.estado.isNull()).display()
+tratamento1.filter(tratamento.regiao.isNull()).display()
+tratamento1.filter(tratamento.latitude.isNull()).display()
+tratamento1.filter(tratamento.longitude.isNull()).display()
+tratamento1.filter(tratamento.acessibilidade.isNull()).display()
+tratamento1.filter(tratamento.sites.isNull()).display()
+tratamento1.filter(tratamento.emailPublico.isNull()).display()
+tratamento1.filter(tratamento.telefonePublico.isNull()).display()
+tratamento1.filter(tratamento.facebook.isNull()).display()
+tratamento1.filter(tratamento.instagram.isNull()).display()
+tratamento1.filter(tratamento.twitter.isNull()).display()
+
+#Descrição, endereço e acessibilidade vamos remover as nulas, pois elas são informações importantes que precisam estar no dash
+tratamento2 = tratamento1.filter((col('descricao').isNotNull()))
+tratamento3 = tratamento2.filter((col('endereco').isNotNull()))
+tratamento4 = tratamento3.filter((col('acessibilidade').isNotNull()))
+
+#verificacao se ainda há nulos
+tratamento2.filter(tratamento.descricao.isNull()).display()
+tratamento3.filter(tratamento.endereco.isNull()).display()
+tratamento4.filter(tratamento.acessibilidade.isNull()).display()
+
+#contagem do total de linhas após essas exclusões
+tratamento4.count()
+
+for coluna in tratamento4.columns:
+    tratamento5 = tratamento4.withColumn(coluna, trim(col(coluna)))
+
+tratamento5.display()
+
+tratamento6 = tratamento5.withColumn('id', col('id').cast(IntegerType())) \
+                         .withColumn('data_criacao', to_date(col('data_criacao'))) \
+                         .withColumn('latitude', col('latitude').cast(FloatType())) \
+                         .withColumn('longitude', col('longitude').cast(FloatType()))
+tratamento6.printSchema()
+
+tratamento7 = tratamento6.fillna('Não Informado')
+tratamento7.display()
+
+# verificação dos tipos de dados entrantes nessa coluna
+display(tratamento7.select('acessibilidade').groupBy('acessibilidade').count())
+
+#padronização da coluna
+tratamento8 = tratamento7.withColumn('acessibilidade', when(col('acessibilidade') == lit('sim'), 'Sim').otherwise(col('acessibilidade')))
+tratamento9 = tratamento8.withColumn('acessibilidade', when(col('acessibilidade') == lit('não'), 'Não').otherwise(col('acessibilidade')))
+
+#eliminação de uma linha na qual não foi conseguido excluir anteriormente e a acessbilidade não tinha informações
+tratamento10 = tratamento9.filter(tratamento9.nome != 'Museu Carlos Gomes - CCLA')
+
+#verificação novamente
+display(tratamento10.select('acessibilidade').groupBy('acessibilidade').count())
+
+# verificação dos tipos de dados entrantes nessa coluna
+display(tratamento10.select('sites').groupBy('sites').count())
+
+#padronização da coluna com o que não foi conseguido com o 'fillna'
+tratamento11 = tratamento10.withColumn('sites', when(col('sites') == lit(''), 'Não Informado').otherwise(col('sites')))
+
+#verificação novamente
+display(tratamento11.select('sites').groupBy('sites').count())
+
+# verificação dos tipos de dados entrantes nessa coluna
+display(tratamento11.select('descricao').groupBy('descricao').count())
+
+#exclusão de descrições definidas como '.', '...' e 'ex-votos.'
+tratamento12 = tratamento11.filter(tratamento11.descricao != '.') \
+                           .filter(tratamento11.descricao != '...') \
+                           .filter(tratamento11.descricao != 'Ex-votos.')
+
+#verificação novamente
+display(tratamento12.select('descricao').groupBy('descricao').count())
+
+#contagem do total de linhas após essas exclusões
+tratamento12.count()
+
+# verificação dos tipos de dados entrantes nessa coluna
+display(tratamento12.select('emailPublico').groupBy('emailPublico').count())
+
+#padronização da coluna com o que não foi conseguido com o 'fillna'
+tratamento13 = tratamento12.withColumn('emailPublico', when(col('emailPublico') == lit(''), 'Não Informado').otherwise(col('emailPublico')))
+tratamento14 = tratamento13.withColumn('emailPublico', when(col('emailPublico') == lit('xxx@xxx.xxx.xx'), 'Não Informado').otherwise(col('emailPublico')))
+tratamento15 = tratamento14.withColumn('emailPublico', when(col('emailPublico') == lit('email@email.com'), 'Não Informado').otherwise(col('emailPublico')))
+tratamento16 = tratamento15.withColumn('emailPublico', when(col('emailPublico') == lit('xx@xx.xx'), 'Não Informado').otherwise(col('emailPublico')))
+tratamento17 = tratamento16.withColumn('emailPublico', when(col('emailPublico') == lit('uu@uuu.uu'), 'Não Informado').otherwise(col('emailPublico')))
+tratamento18 = tratamento17.withColumn('emailPublico', when(col('emailPublico') == lit('nao@nao.com.br'), 'Não Informado').otherwise(col('emailPublico')))
+tratamento19 = tratamento18.withColumn('emailPublico', when(col('emailPublico') == lit('AMBIENTAL.COMCAP@PMF.SC.GOV.BR'), 'ambiental.comcap@pmf.sc.gov.br').otherwise(col('emailPublico')))
+tratamento20 = tratamento19.withColumn('emailPublico', when(col('emailPublico') == lit('xx@xxx.xx'), 'Não Informado').otherwise(col('emailPublico')))
+
+# verificação dos tipos de dados entrantes nessa coluna
+display(tratamento20.select('emailPublico').groupBy('emailPublico').count())
+
+# verificação dos tipos de dados entrantes nessa coluna
+display(tratamento20.select('telefonePublico').groupBy('telefonePublico').count())
+
+#padronização da coluna com o que não foi conseguido com o 'fillna'
+tratamento21 = tratamento20.withColumn('telefonePublico', when(col('telefonePublico') == lit(''), 'Não Informado').otherwise(col('telefonePublico')))
+tratamento22 = tratamento21.withColumn('telefonePublico', when(col('telefonePublico') == lit('(00) 00000-0000'), 'Não Informado').otherwise(col('telefonePublico')))
+tratamento23 = tratamento22.withColumn('telefonePublico', when(col('telefonePublico') == lit('(00) 0000-0000'), 'Não Informado').otherwise(col('telefonePublico')))
+
+# verificação dos tipos de dados entrantes nessa coluna
+display(tratamento23.select('telefonePublico').groupBy('telefonePublico').count())
+
+# verificação dos tipos de dados entrantes nessa coluna
+display(tratamento23.select('facebook').groupBy('facebook').count())
+
+#padronização da coluna com o que não foi conseguido com o 'fillna'
+tratamento24 = tratamento23.withColumn('facebook', when(col('facebook') == lit(''), 'Não Informado').otherwise(col('facebook')))
+
+# verificação dos tipos de dados entrantes nessa coluna
+display(tratamento24.select('facebook').groupBy('facebook').count())
+
+# verificação dos tipos de dados entrantes nessa coluna
+display(tratamento24.select('instagram').groupBy('instagram').count())
+
+#não há necessidade de tratamento na coluna
+
+# verificação dos tipos de dados entrantes nessa coluna
+display(tratamento24.select('twitter').groupBy('twitter').count())
+
+#padronização da coluna com o que não foi conseguido com o 'fillna'
+tratamento25 = tratamento24.withColumn('twitter', when(col('twitter') == lit(''), 'Não Informado').otherwise(col('twitter')))
+
+# verificação dos tipos de dados entrantes nessa coluna
+display(tratamento25.select('twitter').groupBy('twitter').count())
+
+"""<h3> 4 - VISUALIZAÇÃO FINAL DA TABELA E OS TRATAMENTOS REALIZADOS"""
+
+#vsualização do DataFrame
+tratamento25.display()
+
+#Informações de cada coluna
+tratamento25.printSchema()
+
+#contagem
+tratamento25.count()
+
+"""<h3> 5 - SALVAR O DATAFRAME FINAL COMO TABELA NO AZURE SQL"""
+
+#write_AzureSQLdb()
