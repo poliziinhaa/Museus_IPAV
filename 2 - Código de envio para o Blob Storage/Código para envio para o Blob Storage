@@ -1,0 +1,31 @@
+#Instalando bibliotecas necessarias
+!pip install azure.identity
+!pip install azure.storage.blob
+
+#Importando as bibliotecas
+from azure.identity import DefaultAzureCredential
+from azure.storage.blob import BlobServiceClient, BlobClient
+token_credential = DefaultAzureCredential()
+
+#Fazendo a conexão com o Blob
+blob_service_client = BlobServiceClient(
+    account_url="<INSIRA AQUI SUA URL>",
+    credential=token_credential)
+
+#Chave de acesso ao Blob (Padrão)
+string = "DefaultEndpointsProtocol=https;AccountName="<INSIRA AQUI SEU NOME DE CONTA>";AccountKey="<INSIRA AQUI SUA SENHA DE CONTA>""
+
+#Enviando o arquivo "museus" para o blob
+blob = BlobClient.from_connection_string(conn_str=string, container_name="<INSIRA AQUI O NOME DO SEU CONTEINER>", blob_name="<INSIRA AQUI O NOME DO BLOB>")
+with open("museus.json","rb") as data:
+    blob.upload_blob(data, overwrite=True)
+
+#Enviando o arquivo "eventos" para o blob
+blob = BlobClient.from_connection_string(conn_str=string, container_name="<INSIRA AQUI O NOME DO SEU CONTEINER>", blob_name="<INSIRA AQUI O NOME DO BLOB>")
+with open("eventos.json","rb") as data1:
+    blob.upload_blob(data1, overwrite=True)
+
+#Enviando o arquivo "ocorrencias" para o blob
+blob = BlobClient.from_connection_string(conn_str=string, container_name="<INSIRA AQUI O NOME DO SEU CONTEINER>", blob_name="<INSIRA AQUI O NOME DO BLOB>")
+with open("ocorrencias.json","rb") as data1:
+    blob.upload_blob(data1, overwrite=True)
