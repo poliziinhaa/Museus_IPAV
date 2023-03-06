@@ -1,0 +1,256 @@
+<h3> 1 - PREPARAÇÃO DO AMBIENTE E CONEXÕES NECESSÁRIAS COM AZURE
+"""
+
+#%pip install --upgrade pip
+#%pip install msal
+#%pip install pandas
+
+import msal
+import pandas as pd
+import pyspark.sql.utils
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
+import pyspark.sql.functions as f
+
+#função de escrita no Azure SQL Database
+def write_AzureSQLdb():
+
+    #Id do locatário/inquilino: Localizado em Registros de Aplicativos do Azure Active Directory -> app-user-databricks
+    tenant_id = '<INSIRA AQUI O ID DO LOCATÁRIO>'
+
+    #Autoridade:
+    MSAL_authority = 'https://login.windows.net/' + tenant_id
+
+    #url do recurso database
+    resource_url = '<INSIRA AQUI URL DO RECURSO DATABASE>'
+
+    # Service Principal Client ID - Criado em secrets no Key Vault
+    service_principal_id = "dbutils.secrets.get(scope = '<INSIRA AQUI AS INFORMAÇÕES NECESSÁRIAS>', key = 'INSIRA AQUI AS INFORMAÇÕES NECESSÁRIAS')
+
+    # Service Principal Secret - Criado em secrets no Key Vault
+    service_principal_secret = dbutils.secrets.get(scope = '<INSIRA AQUI AS INFORMAÇÕES NECESSÁRIAS>', key = '<INSIRA AQUI AS INFORMAÇÕES NECESSÁRIAS>')
+
+    # Variaveis e string de conexão ao Azure SQL Server
+    jdbcHostname  = '<INSIRA AQUI AS INFORMAÇÕES NECESSÁRIAS>'
+    jdbcDatabase  = '<INSIRA AQUI AS INFORMAÇÕES NECESSÁRIAS>'
+    jdbcPort      = '<INSIRA AQUI AS INFORMAÇÕES NECESSÁRIAS>'
+    jdbcUrl       = f'jdbc:sqlserver://{jdbcHostname}:{jdbcPort};database={jdbcDatabase}'
+
+    #Criando a instância que sera usada durante todo o ciclo de vida do aplicativo.
+    instance = msal.ConfidentialClientApplication(service_principal_id, service_principal_secret, MSAL_authority)
+
+    #Enviando solicitação ao AAD para obter um token.
+    token = instance.acquire_token_for_client(resource_url)
+
+    #acesando o token
+    access_token = token['access_token']
+    
+    #selecao das colunas, formato da conexão, url da conexão, schema.tabela e acesso do token.
+    museus.write.format('jdbc')\
+                                     .mode('overwrite')\
+                                     .option('url', jdbcUrl)\
+                                     .option('dbtable', 'stage_poliana_cavalheiro.eventos_lab04')\
+                                     .option('accessToken', access_token)\
+                                     .save()
+
+"""<h3> 2 - SELEÇÃO DO ARQUIVO EVENTOS"""
+
+dbutils.fs.ls('/mnt/poliana-blob/lab04/eventos.json')
+
+# Commented out IPython magic to ensure Python compatibility.
+# %fs
+ls /mnt/poliana-blob/lab04
+
+caminho = '/mnt/poliana-blob/lab04/eventos.json'
+df_eventos = (spark.read
+    .format('json')
+    .option('inferSchema', 'true')
+    .option('header', 'true')
+    .load(caminho))
+
+#vsualização do DataFrame
+df_eventos.display()
+
+#Informações de cada coluna
+df_eventos.printSchema()
+
+#contagem
+df_eventos.count()
+
+"""<h3> 3 - TRATAMENTO DE DADOS DO ARQUIVO EVENTOS"""
+
+tratamento = df_eventos.select(col('name').alias('nome'),
+                               col('id').alias('id_evento'),
+                               col('classificacaoEtaria'),
+                               col('descricaoSonora'),
+                               col('traducaoLibras'),
+                               col('shortDescription').alias('Descricao_evento')
+                              )
+
+#visualizando como ficou o dataFrame
+tratamento.display()
+tratamento.printSchema()
+
+for coluna in tratamento.columns:
+    tratamento2 = tratamento.withColumn(coluna, trim(col(coluna)))
+
+tratamento2.display()
+
+tratamento3 = tratamento2.withColumn('id_evento', col('id_evento').cast(IntegerType()))
+
+
+# verificando as mudanças com o Schema
+tratamento3.printSchema()
+
+tratamento4 = tratamento3.na.fill('Não Informado')
+
+#verificando
+tratamento4.display()
+
+"""<h3> 4 - SELEÇÃO DO ARQUIVO OCORRÊNCIAS"""
+
+# Commented out IPython magic to ensure Python compatibility.
+# %fs
+ls /mnt/poliana-blob/lab04
+
+caminho = '/mnt/poliana-blob/lab04/ocorrencias.json'
+df_ocorrencias = (spark.read
+    .format('json')
+    .option('inferSchema', 'true')
+    .option('header', 'true')
+    .load(caminho))
+
+#vsualização do DataFrame
+df_ocorrencias.display()
+
+#Informações de cada coluna
+df_ocorrencias.printSchema()
+
+#contagem
+df_ocorrencias.count()
+
+"""<h3> 5 - TRATAMENTO DOS DADOS ARQUIVO OCORRÊNCIAS"""
+
+ocorrencias = df_ocorrencias.select(col('occurrences.eventId').alias('id'),
+                                    col('occurrences.rule.description').alias('descricao_ocorrencia'),
+                                    col('occurrences.rule.startsAt').alias('horario_inicio'),
+                                    col('occurrences.rule.endsAt').alias('horario_termino'),
+                                    col('occurrences.rule.frequency').alias('frequencia'),
+                                    col('occurrences.rule.startsOn').alias('data_inicio'),
+                                    col('occurrences.rule.until').alias('data_termino'),
+                                    col('occurrences.rule.price').alias('preco'),
+                                   )
+
+ocorrencias.display()
+
+ocorrencias1 = (ocorrencias.withColumn('descricao_ocorrencia', concat_ws('', col('descricao_ocorrencia')))
+                         .withColumn('horario_inicio', concat_ws('', col('horario_inicio')))
+                         .withColumn('horario_termino', concat_ws('', col('horario_termino')))
+                         .withColumn('frequencia', concat_ws('', col('frequencia')))
+                         .withColumn('data_inicio', concat_ws('', col('data_inicio')))
+                         .withColumn('data_termino', concat_ws('', col('data_termino')))
+                         .withColumn('preco', concat_ws('', col('preco')))
+                         .withColumn('id', concat_ws('', col('id')))
+              )
+
+ocorrencias1.display()
+
+for coluna in ocorrencias1.columns:
+    ocorrencias2 = ocorrencias1.withColumn(coluna, trim(col(coluna)))
+
+ocorrencias2.display()
+
+ocorrencias2.printSchema()
+
+ocorrencias3 = ocorrencias2.withColumn('id', col('id').cast(IntegerType())) \
+                         .withColumn('data_inicio', to_date(col('data_inicio'))) \
+                         .withColumn('data_termino', to_date(col('data_termino'))) \
+
+ocorrencias3.printSchema()
+ocorrencias3.display()
+
+ocorrencias4 = ocorrencias3.filter((col('data_inicio').isNotNull()) & (col('data_termino').isNotNull()))
+
+ocorrencias4.display()
+
+#contagem das linhas
+ocorrencias4.count()
+
+# verificação dos tipos de dados entrantes nessa coluna
+display(ocorrencias4.select('descricao_ocorrencia').groupBy('descricao_ocorrencia').count())
+
+#padronização da coluna
+ocorrencias5 = ocorrencias4.withColumn('descricao_ocorrencia', when(col('descricao_ocorrencia') == lit('...'), 'Não Informado').otherwise(col('descricao_ocorrencia')))
+ocorrencias6 = ocorrencias5.withColumn('descricao_ocorrencia', when(col('descricao_ocorrencia') == lit('#MuseudaInconfidencia - conect-se, interaja, poste, curta e compartilhe nas redes sociais fotos da sua visita ao Museu da Inconfidência.'), 'Museu da Inconfidência Mineira').otherwise(col('descricao_ocorrencia')))
+
+#verificação novamente
+display(ocorrencias6.select('descricao_ocorrencia').groupBy('descricao_ocorrencia').count())
+
+display(ocorrencias6.select('horario_inicio').groupBy('horario_inicio').count())
+
+display(ocorrencias6.select('horario_termino').groupBy('horario_termino').count())
+
+display(ocorrencias6.select('frequencia').groupBy('frequencia').count())
+
+#padronização da coluna
+ocorrencias7 = (ocorrencias6.withColumn('frequencia', when(col('frequencia') == lit('weekly'), 'Semanalmente').otherwise(col('frequencia')))
+                            .withColumn('frequencia', when(col('frequencia') == lit('daily'), 'Diariamente').otherwise(col('frequencia')))
+               )
+#visualização
+display(ocorrencias7.select('frequencia').groupBy('frequencia').count())
+
+display(ocorrencias7.select('data_inicio').groupBy('data_inicio').count())
+display(ocorrencias7.select('data_termino').groupBy('data_termino').count())
+
+display(ocorrencias7.select('preco').groupBy('preco').count())
+
+#padronização coluna
+ocorrencias8 = (ocorrencias7.withColumn('preco', when(col('preco') == lit(''), 'Não Informado').otherwise(col('preco')))
+                            .withColumn('preco', when(col('preco') == lit('0'), 'Gratuito').otherwise(col('preco')))
+                            .withColumn('preco', when(col('preco') == lit('0,00'), 'Gratuito').otherwise(col('preco')))
+                            .withColumn('preco', when(col('preco') == lit('00'), 'Gratuito').otherwise(col('preco')))
+                            .withColumn('preco', when(col('preco') == lit('00,00'), 'Gratuito').otherwise(col('preco')))
+                            .withColumn('preco', when(col('preco') == lit('0000'), 'Gratuito').otherwise(col('preco')))
+                            .withColumn('preco', when(col('preco') == lit('entrada gratuita'), 'Gratuito').otherwise(col('preco')))
+                            .withColumn('preco', when(col('preco') == lit('Entrada gratuita'), 'Gratuito').otherwise(col('preco')))
+                            .withColumn('preco', when(col('preco') == lit('grátis'), 'Gratuito').otherwise(col('preco')))
+                            .withColumn('preco', when(col('preco') == lit('gratuito'), 'Gratuito').otherwise(col('preco')))
+                            .withColumn('preco', when(col('preco') == lit('Grátis'), 'Gratuito').otherwise(col('preco')))
+                            .withColumn('preco', when(col('preco') == lit('Entrada Franca'), 'Gratuito').otherwise(col('preco')))
+                            .withColumn('preco', when(col('preco') == lit('GRATUITO'), 'Gratuito').otherwise(col('preco')))
+                            .withColumn('preco', when(col('preco') == lit('Gratuita'), 'Gratuito').otherwise(col('preco')))
+                            .withColumn('preco', when(col('preco') == lit('Livre'), 'Gratuito').otherwise(col('preco')))
+                            .withColumn('preco', when(col('preco') == lit('gratuito'), 'Gratuito').otherwise(col('preco')))
+                            .withColumn('preco', when(col('preco') == lit('Livre'), 'Gratuito').otherwise(col('preco')))
+                            .withColumn('preco', when(col('preco') == lit('Livre'), 'Gratuito').otherwise(col('preco')))
+                            .withColumn('preco', when(col('preco') == lit('Entrada Franca'), 'Gratuito').otherwise(col('preco')))
+
+               )
+
+display(ocorrencias8.select('preco').groupBy('preco').count())
+
+#vsualização do DataFrame
+ocorrencias8.display()
+
+#Informações de cada coluna
+ocorrencias8.printSchema()
+
+#contagem
+ocorrencias8.count()
+
+"""<h3> 6 - UNIÃO DOS DATAFRAMES"""
+
+df_final = tratamento4.join(ocorrencias8, tratamento4.id_evento == ocorrencias8.id, 'inner')
+df_final.display()
+
+df_final = df_final.drop(col('id'))
+
+df_final.display()
+
+df_final.printSchema()
+
+df_final.count()
+
+"""<h3> 7 - SALVAR O DATAFRAME FINAL COMO TABELA NO AZURE SQL"""
+
+#write_AzureSQLdb()
