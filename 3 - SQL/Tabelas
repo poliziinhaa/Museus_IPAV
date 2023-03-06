@@ -1,0 +1,89 @@
+create table stage_poliana_cavalheiro.museu_lab04(
+id_museu int NULL,
+nome nvarchar NULL,
+data_criacao date NULL,
+descricao nvarchar(max) NOT NULL,
+endereco nvarchar(max) NOT NULL,
+estado nvarchar(max) NOT NULL,
+regiao nvarchar(max) NOT NULL,
+latitude float NULL,
+longitude float NULL,
+acessibilidade nvarchar(max) NOT NULL,
+sites nvarchar(max) NOT NULL,
+emailPublico nvarchar(max) NOT NULL,
+telefonePublico nvarchar(max) NOT NULL,
+facebook nvarchar(max) NOT NULL,
+instagram nvarchar(max) NOT NULL,
+twitter nvarchar(max) NOT NULL
+)
+
+
+create table stage_poliana_cavalheiro.eventos_lab04(
+nome nvarchar(max) NOT NULL,
+classificacao_Etaria nvarchar(max) NOT NULL,
+descricaoSonora nvarchar(max) NOT NULL,
+traducaoLibras nvarchar(max) NOT NULL,
+Descricao_evento nvarchar(max) NOT NULL,
+id_evento int NULL,
+id_museu int NULL,
+descricao_ocorrencia nvarchar(max) NOT NULL,
+frequencia nvarchar(max) NOT NULL,
+data_inicio date NULL,
+data_termino date NULL,
+preco nvarchar(max) NOT NULL
+)
+
+
+create table dw_poliana_cavalheiro.museus_lab04(
+id_museu int NULL,
+nome nvarchar(max) NULL,
+data_criacao date NULL,
+descricao nvarchar(max) NOT NULL,
+endereco nvarchar(max) NOT NULL,
+latitude float NULL,
+longitude float NULL,
+sites nvarchar(max) NOT NULL,
+emailPublico nvarchar(max) NOT NULL,
+telefonePublico nvarchar(max) NOT NULL,
+facebook nvarchar(max) NOT NULL,
+instagram nvarchar(max) NOT NULL,
+twitter nvarchar(max) NOT NULL
+)
+
+
+create table dw_poliana_cavalheiro.eventos_lab04(
+nome nvarchar(max) NOT NULL,
+descricaoSonora nvarchar(max) NOT NULL,
+traducaoLibras nvarchar(max) NOT NULL,
+Descricao_evento nvarchar(max) NOT NULL,
+id_evento int NULL,
+id_museu int NULL,
+descricao_ocorrencia nvarchar(max) NOT NULL,
+data_inicio date NULL,
+data_termino date NULL,
+preco nvarchar(max) NOT NULL
+) 
+
+
+CREATE TABLE dw_poliana_cavalheiro.lab04_frequencia(
+id_evento int NULL,
+frequencia nvarchar(max) NULL
+)
+
+
+CREATE TABLE dw_poliana_cavalheiro.lab04_acessibilidade(
+id_museu int NULL,
+acessibilidade nvarchar(max) NULL
+)
+
+
+CREATE TABLE dw_poliana_cavalheiro.lab04_estado(
+id_museu int NULL,
+estado nvarchar(max) NULL
+)
+
+
+CREATE TABLE dw_poliana_cavalheiro.lab04_regiao(
+id_museu int NULL,
+regiao nvarchar(max) NULL
+)
