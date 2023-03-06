@@ -1,0 +1,110 @@
+CREATE PROCEDURE dw_poliana_cavalheiro.lab04_IPAV
+
+AS
+BEGIN
+
+--TRUNCATE DAS TABELAS DIMENSAO E FATO
+TRUNCATE TABLE dw_poliana_cavalheiro.museus_lab04
+TRUNCATE TABLE dw_poliana_cavalheiro.lab04_acessibilidade
+TRUNCATE TABLE dw_poliana_cavalheiro.lab04_estado
+TRUNCATE TABLE dw_poliana_cavalheiro.lab04_regiao
+TRUNCATE TABLE dw_poliana_cavalheiro.eventos_lab04
+TRUNCATE TABLE dw_poliana_cavalheiro.lab04_frequencia
+
+-- POPULANDO TABELAS DIMENSAO(MUSEUS)
+INSERT INTO dw_poliana_cavalheiro.lab04_acessibilidade(
+    id_museu,
+    acessibilidade
+)
+SELECT
+stage.id_museu,
+stage.acessibilidade
+from stage_poliana_cavalheiro.museu_lab04 as stage
+
+INSERT INTO dw_poliana_cavalheiro.lab04_estado(
+    id_museu,
+    estado
+)
+SELECT 
+stage.id_museu,
+stage.estado
+FROM stage_poliana_cavalheiro.museu_lab04 as stage
+
+INSERT INTO dw_poliana_cavalheiro.lab04_regiao(
+    id_museu,
+    regiao
+)
+SELECT
+stage.id_museu,
+stage.regiao
+FROM stage_poliana_cavalheiro.museu_lab04 as stage
+
+-- POPULANDO TABELAS DIMENSAO(EVENTOS)
+INSERT INTO dw_poliana_cavalheiro.lab04_frequencia(
+    id_evento,
+    frequencia
+)
+SELECT
+stage.id_evento,
+stage.frequencia
+FROM stage_poliana_cavalheiro.eventos_lab04 as stage
+
+-- POPULANDO TABELA FATO(MUSEUS)
+INSERT INTO dw_poliana_cavalheiro.museus_lab04(
+    id_museu,
+    nome,
+    data_criacao,
+    descricao,
+    endereco,
+    latitude,
+    longitude,
+    sites,
+    emailPublico,
+    telefonePublico,
+    facebook,
+    instagram,
+    twitter
+)
+SELECT
+stage.id_museu,
+stage.nome,
+stage.data_criacao,
+stage.descricao,
+stage.endereco,
+stage.latitude,
+stage.longitude,
+stage.sites,
+stage.emailPublico,
+stage.telefonePublico,
+stage.facebook,
+stage.instagram,
+stage.twitter
+FROM stage_poliana_cavalheiro.museu_lab04 as stage
+
+-- POPULANDO TABELA FATO(EVENTOS)
+INSERT INTO dw_poliana_cavalheiro.eventos_lab04(
+    nome,
+		descricaoSonora,
+    traducaoLibras,
+    Descricao_evento,
+		id_evento,
+		id_museu,
+    descricao_ocorrencia,
+    data_inicio,
+    data_termino,
+    preco
+)
+SELECT
+stage.nome,
+stage.descricaoSonora,
+stage.traducaoLibras,
+stage.Descricao_evento,
+stage.id_evento,
+stage.id_museu,
+stage.descricao_ocorrencia,
+stage.data_inicio,
+stage.data_termino,
+preco
+FROM stage_poliana_cavalheiro.eventos_lab04 as stage
+
+END
