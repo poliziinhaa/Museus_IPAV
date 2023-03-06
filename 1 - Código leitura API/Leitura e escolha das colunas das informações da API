@@ -1,0 +1,19 @@
+#importando bibliotecas
+
+import json
+import requests
+
+#consumo das apis necessárias
+eventos = requests.get("http://museus.cultura.gov.br/api/event/findByLocation/?@select=singleUrl,isVerified,terms,id,name,shortDescription,longDescription,rules,createTimestamp,updateTimestamp,occurrences.{space.{id,name,singleUrl,En_CEP,En_Nome_Logradouro,En_Num,En_Complemento,En_Bairro,En_Municipio,En_Estado},rule},owner.{id,name,singleUrl},project.{id,name,singleUrl},subTitle,registrationInfo,classificacaoEtaria,telefonePublico,preco,traducaoLibras,descricaoSonora,site,facebook,twitter,instagram,linkedin,spotify,youtube,pinterest,event_attendance,num_sniic,opportunityTabName,useOpportunityTab&@from=2019-07-01&@to=2023-07-31&@type=json").json()
+museus = requests.get("http://museus.cultura.gov.br/api/space/find/?@select=singleUrl,isVerified,id,location,name,public,shortDescription,createTimestamp,updateTimestamp,emailPublico,cnpj,razaoSocial,telefonePublico,acessibilidade,acessibilidade_fisica,capacidade,endereco,En_CEP,En_Nome_Logradouro,En_Num,En_Complemento,En_Bairro,En_Municipio,En_Estado,site,facebook,twitter,instagram,certificado,useOpportunityTab&@type=json").json()
+ocorrencias = requests.get("http://museus.cultura.gov.br/api/event/find@select=occurrences*.").json()
+
+#criação dos arquivos em json para posteriormente ser enviado pro blob
+with open('eventos.json', 'w') as json_file:
+    json.dump(eventos, json_file)
+
+with open('museus.json', 'w') as json_file:
+    json.dump(museus, json_file)
+
+with open('ocorrencias.json, 'w') as json_file:
+		json.dumps(ocorrencias, json_file
